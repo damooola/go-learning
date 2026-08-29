@@ -11,6 +11,12 @@ func main() {
 	isLearning := true
 	initial := 'A'
 
+	// Printf verbs (the %-codes) each format a value differently:
+	//   %v  - "default" format, works for any type
+	//   %q  - double-quoted string/rune, with escapes made visible
+	//   %T  - the Go type of the value, not its value
+	//   %d  - base-10 integer
+	//   %f  - decimal float (%.2f rounds to 2 places after the point)
 	fmt.Println("Basic types:")
 	fmt.Printf("name: %q (%T)\n", name, name)
 	fmt.Printf("age: %v (%T)\n", age, age)
@@ -49,5 +55,6 @@ func main() {
 	fmt.Println("\nComposite types:")
 	fmt.Printf("topics: %v (%T)\n", topics, topics)
 	fmt.Printf("scores: %v (%T)\n", scores, scores)
+	// %+v is %v plus field names, useful for structs.
 	fmt.Printf("student: %+v (%T)\n", student, student)
 }
