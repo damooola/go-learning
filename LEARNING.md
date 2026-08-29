@@ -6,6 +6,50 @@ This is our evolving guide. Each topic gets:
 - a runnable example in `examples/`;
 - a few small exercises to try.
 
+## Our goal
+
+The long-term goal is to understand and contribute safely to the
+[`neocore`](https://github.com/stmfb/neocore) Go backend.
+
+`neocore` is a large production application, so it is normal that its code is
+hard to read as a beginner. We will not try to understand it all at once.
+Instead, each lesson will teach one small idea and later connect that idea to a
+pattern used in the backend.
+
+### Learning path
+
+- [x] Set up a Go module and run a program
+- [ ] Learn data types (current lesson)
+- [ ] Learn variables, constants, and operators
+- [ ] Make decisions with `if` and `switch`
+- [ ] Repeat work with `for`
+- [ ] Write and call functions
+- [ ] Work confidently with arrays, slices, and maps
+- [ ] Model data with structs
+- [ ] Understand pointers and methods
+- [ ] Split code into packages
+- [ ] Handle errors
+- [ ] Use interfaces
+- [ ] Write tests
+- [ ] Learn HTTP requests, responses, and status codes
+- [ ] Encode and decode JSON
+- [ ] Build a small REST API
+- [ ] Add middleware and request validation
+- [ ] Store and retrieve data
+- [ ] Learn `context` and basic concurrency
+- [ ] Read a small feature in `neocore` from route to database
+
+The later backend lessons will mirror the broad shape found in `neocore`:
+
+```text
+HTTP request -> route -> handler -> service -> database/integration
+                    |          |
+                  JSON     business rules
+```
+
+We will build a much smaller practice API before working directly in that
+codebase.
+
 ## Running the code
 
 From the repository root:
@@ -123,13 +167,10 @@ See the complete runnable example in
 4. Add another topic with `append`.
 5. Change `price := 19.95` into an `int` and observe the result.
 
-## Suggested next topics
+## Immediate next topics
 
 1. Variables, constants, and operators
 2. `if`, `switch`, and loops
 3. Functions
 4. Arrays, slices, and maps in more depth
 5. Structs and methods
-6. Pointers
-7. Interfaces and error handling
-
