@@ -5,6 +5,7 @@ import "fmt"
 
 func main() {
 	// Go infers these types from their values.
+	var num int = 56
 	name := "Ada"
 	age := 30
 	height := 1.65
@@ -18,6 +19,8 @@ func main() {
 	//   %d  - base-10 integer
 	//   %f  - decimal float (%.2f rounds to 2 places after the point)
 	fmt.Println("Basic types:")
+	fmt.Printf("num: %v (%T)\n", num, num)
+
 	fmt.Printf("name: %q (%T)\n", name, name)
 	fmt.Printf("age: %v (%T)\n", age, age)
 	fmt.Printf("height: %.2f (%T)\n", height, height)
