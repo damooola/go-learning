@@ -50,6 +50,19 @@ HTTP request -> route -> handler -> service -> database/integration
 We will build a much smaller practice API before working directly in that
 codebase.
 
+## Learning resources
+
+- [Go by Example](https://gobyexample.com/) — short, runnable examples for
+  individual Go features.
+- [Go Developer Roadmap](https://roadmap.sh/golang) — a broad checklist of
+  topics used by Go developers.
+- [Official Go documentation](https://go.dev/doc/) — the authoritative
+  reference when we need more detail.
+
+We will not blindly copy their order or examples. Go by Example is concise and
+sometimes omits error handling to keep a demonstration small. Our local lessons
+will add beginner-friendly explanations, exercises, and safe backend practices.
+
 ## Running the code
 
 From the repository root:
@@ -158,6 +171,11 @@ fmt.Printf("value=%v type=%T\n", age, age)
 
 See the complete runnable example in
 [`examples/data_types/main.go`](examples/data_types/main.go).
+
+Related reading:
+
+- [Go by Example: Values](https://gobyexample.com/values)
+- [Go by Example: Variables](https://gobyexample.com/variables)
 
 ### Try it yourself
 
