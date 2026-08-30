@@ -48,6 +48,10 @@ func main() {
 		"Grace": 98,
 	}
 
+	// A struct groups named fields into one type, like an object with
+	// no methods. Here it's declared inside main() just for this demo;
+	// normally you'd declare it at package level so other functions
+	// can use it too.
 	type Person struct {
 		Name string
 		Age  int
