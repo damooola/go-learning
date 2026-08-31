@@ -24,10 +24,11 @@ pattern used in the backend.
 ### Learning path
 
 - [x] Set up a Go module and run a program
-- [ ] Learn data types (current lesson)
+- [x] Learn data types
 - [ ] Learn variables, constants, and operators
-- [ ] Make decisions with `if` and `switch`
-- [ ] Repeat work with `for`
+- [x] Make decisions with `if` and `else`
+- [ ] Make decisions with `switch` (current lesson)
+- [x] Repeat work with `for`
 - [ ] Write and call functions
 - [ ] Work confidently with arrays, slices, and maps
 - [ ] Model data with structs
@@ -75,6 +76,9 @@ From the repository root:
 ```powershell
 go run .
 go run ./examples/data_types
+go run ./examples/for_loops
+go run ./examples/if_else
+go run ./examples/switch
 ```
 
 ## 1. Data types
@@ -190,10 +194,64 @@ Related reading:
 4. Add another topic with `append`.
 5. Change `price := 19.95` into an `int` and observe the result.
 
+## 2. Switch
+
+A `switch` chooses one branch by comparing a value with several cases. It is
+often clearer than a long chain of `if`/`else if` statements.
+
+```go
+day := "Saturday"
+
+switch day {
+case "Saturday", "Sunday":
+	fmt.Println("Weekend")
+case "Monday":
+	fmt.Println("Start of the work week")
+default:
+	fmt.Println("Weekday")
+}
+```
+
+Important differences from Dart:
+
+- Go does not require parentheses around the value.
+- A case can contain multiple comma-separated values.
+- Go automatically stops after a matching case, so you do not write `break`.
+- `fallthrough` exists, but it is explicit and rarely needed.
+- `default` runs when no case matches.
+
+Go can also use `switch` without a value. Each case is then a Boolean
+condition, making it a tidy alternative to an `if`/`else if` chain:
+
+```go
+switch {
+case score >= 90:
+	fmt.Println("A")
+case score >= 80:
+	fmt.Println("B")
+default:
+	fmt.Println("Keep practising")
+}
+```
+
+Backend programs often use switches for values such as HTTP status codes,
+request methods, transaction states, or error categories.
+
+See [`examples/switch/main.go`](examples/switch/main.go).
+
+Related reading: [Go by Example: Switch](https://gobyexample.com/switch)
+
+### Try it yourself
+
+1. Change `day` and predict the output before running the program.
+2. Add `http.StatusUnauthorized` to the HTTP status switch.
+3. Add grade `D` for scores from 60 through 69.
+4. Create a traffic-light switch for `"red"`, `"yellow"`, and `"green"`.
+
 ## Immediate next topics
 
-1. Variables, constants, and operators
-2. `if`, `switch`, and loops
+1. Finish the `switch` exercises
+2. Variables, constants, and operators
 3. Functions
 4. Arrays, slices, and maps in more depth
 5. Structs and methods
