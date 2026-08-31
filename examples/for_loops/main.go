@@ -5,6 +5,13 @@ package main
 import "fmt"
 
 func main() {
+	i := 1
+
+	for i < 4 {
+		fmt.Println( i)
+		i++
+	}
+
 	// Classic three-part for: init; condition; post.
 	fmt.Println("Classic for:")
 	for i := 0; i < 3; i++ {

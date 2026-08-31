@@ -6,6 +6,11 @@ This is our evolving guide. Each topic gets:
 - a runnable example in `examples/`;
 - a few small exercises to try.
 
+Because you already know Dart, lessons may include short **Dart comparison**
+notes. These comparisons are learning aids; we will also point out where the
+two languages behave differently so Dart habits do not cause confusing Go
+bugs.
+
 ## Our goal
 
 The long-term goal is to understand and contribute safely to the
