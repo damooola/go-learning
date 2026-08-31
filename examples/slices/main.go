@@ -8,6 +8,13 @@ import "fmt"
 func main() {
 	// A slice literal looks like an array literal but without a
 	// length — Go manages the length for you.
+	//
+	// := declares a NEW variable and infers its type (only valid
+	// inside functions). = assigns to a variable that already
+	// exists. That's why topics is declared with := here but
+	// reassigned with = a few lines down — using := again on the
+	// next line would try to redeclare topics and fail to compile
+	// (or shadow it, if any name on the left is new).
 	topics := []string{"variables", "functions", "loops"}
 	fmt.Println("topics:", topics, "len:", len(topics))
 
