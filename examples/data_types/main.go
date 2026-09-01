@@ -12,12 +12,28 @@ func main() {
 	isLearning := true
 	initial := 'A'
 
-	// Printf verbs (the %-codes) each format a value differently:
+	// Printf verbs (the %-codes) each format a value differently.
+	// Most common:
 	//   %v  - "default" format, works for any type
+	//   %+v - like %v, plus field names for structs
 	//   %q  - double-quoted string/rune, with escapes made visible
 	//   %T  - the Go type of the value, not its value
 	//   %d  - base-10 integer
 	//   %f  - decimal float (%.2f rounds to 2 places after the point)
+	//   %g  - float in whichever of %e/%f is more compact (no
+	//         trailing zeros); good for printing floats generically
+	//   %s  - string (also works on anything with a String() method)
+	//   %t  - boolean, prints as "true"/"false"
+	// Less common, seen occasionally:
+	//   %e  - float in scientific notation, e.g. 1.234560e+02
+	//   %x/%X - hex (lowercase/uppercase); also hex-dumps a string
+	//   %o  - octal integer
+	//   %b  - binary integer
+	//   %c  - the character a rune/int represents
+	//   %U  - Unicode code point, e.g. U+0041
+	//   %p  - pointer address
+	//   %%  - a literal percent sign
+	// Full reference: https://pkg.go.dev/fmt
 	fmt.Println("Basic types:")
 	fmt.Printf("num: %v (%T)\n", num, num)
 
