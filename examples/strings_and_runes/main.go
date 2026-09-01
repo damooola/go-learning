@@ -11,6 +11,24 @@ import (
 func main() {
 	const word = "résumé"
 
+	// A for loop can count a string's characters manually by
+	// ranging over it and counting iterations — range gives one
+	// iteration per rune, not per byte, so this matches
+	// utf8.RuneCountInString rather than len().
+	characterCount := 0
+	for range word {
+		characterCount++
+	}
+	fmt.Println("character count via for range:", characterCount)
+
+	// A plain byte-indexed for loop instead counts bytes, matching
+	// len(word) — included here just to show the contrast.
+	byteCount := 0
+	for i := 0; i < len(word); i++ {
+		byteCount++
+	}
+	fmt.Println("byte count via classic for:", byteCount)
+
 	// A Go string is really just a read-only sequence of bytes.
 	// len() counts those bytes, and indexing with s[i] gives you one
 	// raw byte, not one character.
