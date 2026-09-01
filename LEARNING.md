@@ -30,7 +30,8 @@ pattern used in the backend.
 - [x] Make decisions with `switch`
 - [x] Repeat work with `for`
 - [x] Write and call functions
-- [ ] Understand closures (current lesson)
+- [x] Understand closures
+- [ ] Understand recursion (current lesson)
 - [x] Work with arrays, slices, and maps
 - [ ] Model data with structs
 - [ ] Understand pointers and methods
@@ -85,6 +86,7 @@ go run ./examples/slices
 go run ./examples/maps
 go run ./examples/functions
 go run ./examples/closures
+go run ./examples/recursion
 ```
 
 ## 1. Data types
@@ -310,9 +312,63 @@ Related reading: [Go by Example: Closures](https://gobyexample.com/closures)
 3. Create two counters and confirm that changing one does not change the other.
 4. Pass a closure to `transformAll` that triples every number.
 
+## 4. Recursion
+
+Recursion happens when a function calls itself. Every recursive function needs
+two important parts:
+
+1. A **base case** that stops the recursion.
+2. A **recursive step** that moves the input closer to the base case.
+
+```go
+func factorial(n int) int {
+	if n == 0 { // base case
+		return 1
+	}
+	return n * factorial(n-1) // recursive step
+}
+```
+
+For `factorial(3)`, Go builds up the calls and then returns through them:
+
+```text
+factorial(3)
+3 * factorial(2)
+3 * 2 * factorial(1)
+3 * 2 * 1 * factorial(0)
+3 * 2 * 1 * 1 = 6
+```
+
+The idea is the same in Dart. The main differences are Go's function syntax
+and explicit types:
+
+```dart
+int factorial(int n) {
+  if (n == 0) return 1;
+  return n * factorial(n - 1);
+}
+```
+
+A missing or unreachable base case causes calls to continue until the program
+runs out of stack space. Deep recursion can also consume a lot of memory. For
+ordinary repetition, a `for` loop is usually simpler in Go. Recursion is most
+helpful when the data is naturally nested, such as trees, folder structures,
+menus, and parent/child records.
+
+See [`examples/recursion/main.go`](examples/recursion/main.go).
+
+Related reading: [Go by Example: Recursion](https://gobyexample.com/recursion)
+
+### Try it yourself
+
+1. Change `countdown` to start at `10`.
+2. Trace `factorial(4)` on paper before running it.
+3. Write `sumTo(n int)` that calculates `n + (n-1) + ... + 1`.
+4. Add a base case that makes `sumSlice` work with an empty slice.
+
 ## Immediate next topics
 
-1. Finish the closure exercises
+1. Finish the recursion exercises
 2. Variables, constants, and operators
 3. Structs and methods
 4. Pointers
