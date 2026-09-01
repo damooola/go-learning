@@ -72,6 +72,51 @@ func (s *Stack[T]) Pop() (T, bool) {
 	return last, true
 }
 
+// SlicesIndex takes TWO type parameters: E is the element type, and
+// S is constrained to "any slice whose elements are of type E"
+// (~[]E), rather than being fixed to []E directly. That extra
+// parameter lets it accept not just []string but any named type
+// whose underlying type is []E too (e.g. type Names []string) — a
+// plain "s []E" parameter would only accept the literal []E type.
+func SlicesIndex[S ~[]E, E comparable](s S, v E) int {
+	for i := range s {
+		if v == s[i] {
+			return i
+		}
+	}
+	return -1
+}
+
+// A generic type isn't limited to wrapping a slice like Stack does
+// — List builds a linked list, where each node (element[T]) points
+// to the next one instead of living in one contiguous slice.
+type element[T any] struct {
+	next *element[T]
+	val  T
+}
+
+type LinkedList[T any] struct {
+	head, tail *element[T]
+}
+
+func (lst *LinkedList[T]) Push(v T) {
+	if lst.tail == nil {
+		lst.head = &element[T]{val: v}
+		lst.tail = lst.head
+	} else {
+		lst.tail.next = &element[T]{val: v}
+		lst.tail = lst.tail.next
+	}
+}
+
+func (lst *LinkedList[T]) AllElements() []T {
+	var elems []T
+	for e := lst.head; e != nil; e = e.next {
+		elems = append(elems, e.val)
+	}
+	return elems
+}
+
 func main() {
 	numbers := []int{1, 2, 3, 4, 5}
 
@@ -103,6 +148,15 @@ func main() {
 	stringStack.Push("b")
 	value2, _ := stringStack.Pop()
 	fmt.Println("popped from stringStack:", value2)
+
+	words := []string{"foo", "bar", "zoo"}
+	fmt.Println("\nSlicesIndex(words, \"zoo\"):", SlicesIndex(words, "zoo"))
+
+	var linkedList LinkedList[int]
+	linkedList.Push(10)
+	linkedList.Push(13)
+	linkedList.Push(23)
+	fmt.Println("linkedList.AllElements():", linkedList.AllElements())
 
 	// Dart comparison: this is the one topic where Dart already
 	// gave you the mental model — List<T>, Map<K, V>, and your own
