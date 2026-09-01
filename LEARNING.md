@@ -27,10 +27,11 @@ pattern used in the backend.
 - [x] Learn data types
 - [ ] Learn variables, constants, and operators
 - [x] Make decisions with `if` and `else`
-- [ ] Make decisions with `switch` (current lesson)
+- [x] Make decisions with `switch`
 - [x] Repeat work with `for`
-- [ ] Write and call functions
-- [ ] Work confidently with arrays, slices, and maps
+- [x] Write and call functions
+- [ ] Understand closures (current lesson)
+- [x] Work with arrays, slices, and maps
 - [ ] Model data with structs
 - [ ] Understand pointers and methods
 - [ ] Split code into packages
@@ -79,6 +80,11 @@ go run ./examples/data_types
 go run ./examples/for_loops
 go run ./examples/if_else
 go run ./examples/switch
+go run ./examples/arrays
+go run ./examples/slices
+go run ./examples/maps
+go run ./examples/functions
+go run ./examples/closures
 ```
 
 ## 1. Data types
@@ -248,10 +254,66 @@ Related reading: [Go by Example: Switch](https://gobyexample.com/switch)
 3. Add grade `D` for scores from 60 through 69.
 4. Create a traffic-light switch for `"red"`, `"yellow"`, and `"green"`.
 
+## 3. Closures
+
+A closure is a function that remembers variables from the surrounding scope,
+even after that surrounding function has finished running.
+
+```go
+func makeCounter() func() int {
+	count := 0
+
+	return func() int {
+		count++
+		return count
+	}
+}
+```
+
+`makeCounter` returns a value whose type is `func() int`: a function taking no
+arguments and returning an `int`. The returned function captures `count`, so
+the value remains available and changes on every call.
+
+```go
+counter := makeCounter()
+fmt.Println(counter()) // 1
+fmt.Println(counter()) // 2
+```
+
+This is similar to a Dart function returning another function:
+
+```dart
+int Function() makeCounter() {
+  var count = 0;
+  return () => ++count;
+}
+```
+
+Each call to `makeCounter()` creates a separate captured `count`. Closures can
+also be passed into other functions, allowing callers to provide a small piece
+of behaviour.
+
+Backend code often uses closures for configured handlers, middleware, logging,
+validation, and callbacks. A closure that modifies captured state is not
+automatically safe when multiple goroutines call it; we will handle that later
+when learning concurrency.
+
+See [`examples/closures/main.go`](examples/closures/main.go).
+
+Related reading: [Go by Example: Closures](https://gobyexample.com/closures)
+
+### Try it yourself
+
+1. Change the counter so it increases by `2`.
+2. Write `makeCountdown(start int)` that returns `start`, then one less each
+   time it is called.
+3. Create two counters and confirm that changing one does not change the other.
+4. Pass a closure to `transformAll` that triples every number.
+
 ## Immediate next topics
 
-1. Finish the `switch` exercises
+1. Finish the closure exercises
 2. Variables, constants, and operators
-3. Functions
-4. Arrays, slices, and maps in more depth
-5. Structs and methods
+3. Structs and methods
+4. Pointers
+5. Error handling in more depth
