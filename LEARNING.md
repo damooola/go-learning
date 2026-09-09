@@ -64,6 +64,13 @@ HTTP request -> route -> handler -> service -> database/integration
 We will build a much smaller practice API before working directly in that
 codebase.
 
+## Neocore case studies
+
+- [Bank-statement HTTP handlers](case_studies/bank_statement_handler/README.md)
+  — an annotated 533-line production file covering handler closures, request
+  validation, pointers, structs, slices, maps, methods, errors, switch, JSON
+  responses, and your connector-fallback change.
+
 ## Learning resources
 
 - [Go by Example](https://gobyexample.com/) — short, runnable examples for
