@@ -47,7 +47,8 @@ pattern used in the backend.
 - [ ] Store and retrieve data
 - [x] Start concurrency with goroutines and channels
 - [x] Learn channel buffering and synchronization
-- [ ] Restrict channels with channel directions (current lesson)
+- [x] Restrict channels with channel directions
+- [ ] Wait on multiple channels with `select` (current lesson)
 - [ ] Learn `context`
 - [ ] Read a small feature in `neocore` from route to database
 
@@ -411,10 +412,49 @@ Related reading:
 3. Try receiving inside `produce`, observe the compiler error, and undo it.
 4. Try sending inside `multiply`, observe the compiler error, and undo it.
 
+## 6. Select
+
+A `select` waits for channel operations. It looks like `switch`, but its cases
+are sends or receives instead of ordinary values:
+
+```go
+select {
+case message := <-channelA:
+	fmt.Println("A:", message)
+case message := <-channelB:
+	fmt.Println("B:", message)
+}
+```
+
+If neither channel is ready, `select` blocks until one becomes ready. If
+several cases are ready at the same time, Go chooses one; do not rely on a
+specific ordering. A single `select` runs only one case, so put it in a loop
+when you need to receive multiple results.
+
+The closest everyday Dart analogy is `Future.any`, because both can react to
+whichever operation finishes first. The match is not exact: `select` operates
+on channel sends and receives, can be repeated, and does not cancel the other
+operations.
+
+Backend services use `select` to combine results from concurrent work, wait
+for messages, handle cancellation, and enforce timeouts. We will add timeout
+and cancellation cases in later lessons.
+
+See [`examples/select/main.go`](examples/select/main.go).
+
+Related reading: [Go by Example: Select](https://gobyexample.com/select)
+
+### Try it yourself
+
+1. Reverse the two delays and predict which message arrives first.
+2. Give both goroutines the same delay and run the program several times.
+3. Add a third channel and a third `select` case.
+4. Change the loop so it waits for three total messages.
+
 ## Immediate next topics
 
-1. Finish the channel-direction exercises
-2. `select` and timeouts
-3. Closing and ranging over channels in more depth
-4. Worker pools and wait groups
-5. `context` for cancellation and deadlines
+1. Finish the `select` exercises
+2. Channel timeouts
+3. Non-blocking channel operations
+4. Closing and ranging over channels in more depth
+5. Worker pools and wait groups
