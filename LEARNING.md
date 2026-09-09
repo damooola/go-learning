@@ -48,7 +48,8 @@ pattern used in the backend.
 - [x] Start concurrency with goroutines and channels
 - [x] Learn channel buffering and synchronization
 - [x] Restrict channels with channel directions
-- [ ] Wait on multiple channels with `select` (current lesson)
+- [x] Wait on multiple channels with `select`
+- [ ] Add timeouts to channel operations (current lesson)
 - [ ] Learn `context`
 - [ ] Read a small feature in `neocore` from route to database
 
@@ -451,10 +452,52 @@ Related reading: [Go by Example: Select](https://gobyexample.com/select)
 3. Add a third channel and a third `select` case.
 4. Change the loop so it waits for three total messages.
 
+## 7. Timeouts
+
+A timeout prevents a program from waiting forever. Combine `select` with
+`time.After` to wait for either a result or a deadline:
+
+```go
+select {
+case result := <-results:
+	fmt.Println("received:", result)
+case <-time.After(100 * time.Millisecond):
+	fmt.Println("timed out")
+}
+```
+
+`time.After(duration)` returns a receive-only channel. After the duration has
+passed, that channel receives a time value and its `select` case becomes ready.
+Whichever case becomes ready first wins.
+
+This resembles Dart's `Future.timeout`, although Go expresses the race using
+channels and `select`.
+
+Important: a timeout stops the caller from **waiting**, but it does not cancel
+the goroutine doing the work. The example uses a result channel with capacity
+one so a late worker can still send its result and exit. In real backend code,
+`context` is commonly used when the underlying operation must also be
+cancelled.
+
+Timeouts protect backend handlers when databases, APIs, queues, or other
+services respond too slowly.
+
+See [`examples/timeouts/main.go`](examples/timeouts/main.go).
+
+Related reading: [Go by Example: Timeouts](https://gobyexample.com/timeouts)
+
+### Try it yourself
+
+1. Increase the first timeout so its operation succeeds.
+2. Decrease the second timeout so it fails.
+3. Print the value received from the `time.After` channel.
+4. Add a third operation whose delay and timeout are equal, then run it several
+   times and observe why relying on exact timing is risky.
+
 ## Immediate next topics
 
-1. Finish the `select` exercises
-2. Channel timeouts
-3. Non-blocking channel operations
-4. Closing and ranging over channels in more depth
-5. Worker pools and wait groups
+1. Finish the timeout exercises
+2. Non-blocking channel operations
+3. Closing and ranging over channels in more depth
+4. Worker pools and wait groups
+5. `context` for cancellation and deadlines
