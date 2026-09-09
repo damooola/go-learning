@@ -31,20 +31,24 @@ pattern used in the backend.
 - [x] Repeat work with `for`
 - [x] Write and call functions
 - [x] Understand closures
-- [ ] Understand recursion (current lesson)
+- [x] Understand recursion
 - [x] Work with arrays, slices, and maps
-- [ ] Model data with structs
-- [ ] Understand pointers and methods
+- [x] Model data with structs
+- [x] Understand pointers and methods
 - [ ] Split code into packages
-- [ ] Handle errors
-- [ ] Use interfaces
+- [x] Handle errors
+- [x] Use interfaces
+- [x] Learn struct embedding, enums, and generics
 - [ ] Write tests
 - [ ] Learn HTTP requests, responses, and status codes
 - [ ] Encode and decode JSON
 - [ ] Build a small REST API
 - [ ] Add middleware and request validation
 - [ ] Store and retrieve data
-- [ ] Learn `context` and basic concurrency
+- [x] Start concurrency with goroutines and channels
+- [x] Learn channel buffering and synchronization
+- [ ] Restrict channels with channel directions (current lesson)
+- [ ] Learn `context`
 - [ ] Read a small feature in `neocore` from route to database
 
 The later backend lessons will mirror the broad shape found in `neocore`:
@@ -77,16 +81,11 @@ From the repository root:
 
 ```powershell
 go run .
-go run ./examples/data_types
-go run ./examples/for_loops
-go run ./examples/if_else
-go run ./examples/switch
-go run ./examples/arrays
-go run ./examples/slices
-go run ./examples/maps
-go run ./examples/functions
-go run ./examples/closures
-go run ./examples/recursion
+# Replace <topic> with a folder name, such as channels.
+go run ./examples/<topic>
+
+# Compile every lesson at once.
+go test ./...
 ```
 
 ## 1. Data types
@@ -366,10 +365,56 @@ Related reading: [Go by Example: Recursion](https://gobyexample.com/recursion)
 3. Write `sumTo(n int)` that calculates `n + (n-1) + ... + 1`.
 4. Add a base case that makes `sumSlice` work with an empty slice.
 
+## 5. Channel directions
+
+A normal `chan T` can both send and receive values. A function often needs
+only one of those abilities, so Go lets its parameter type restrict the
+channel's direction:
+
+```go
+func send(ch chan<- string) { // can only send
+	ch <- "hello"
+}
+
+func receive(ch <-chan string) { // can only receive
+	fmt.Println(<-ch)
+}
+```
+
+Use the arrow as a visual guide:
+
+- `chan<- T`: the arrow points into the channel, so it is send-only.
+- `<-chan T`: the arrow points out of the channel, so it is receive-only.
+- `chan T`: no restriction; it can send and receive.
+
+`make` creates a bidirectional channel. Go automatically narrows it when it is
+passed to a function expecting a send-only or receive-only channel. Trying the
+wrong operation inside that function is a compile-time error.
+
+Dart does not have directly equivalent channel type syntax. `SendPort` and
+`ReceivePort` separate responsibilities in isolate communication, but Go can
+restrict two views of the same channel through function parameter types.
+
+Direction restrictions do not change buffering or blocking. They document who
+owns each operation and let the compiler catch mistakes. As a common rule, the
+producer that sends values should also close the channel.
+
+See [`examples/channel_direction/main.go`](examples/channel_direction/main.go).
+
+Related reading:
+[Go by Example: Channel Directions](https://gobyexample.com/channel-directions)
+
+### Try it yourself
+
+1. Add another number to the producer.
+2. Change the multiplier from `2` to `3`.
+3. Try receiving inside `produce`, observe the compiler error, and undo it.
+4. Try sending inside `multiply`, observe the compiler error, and undo it.
+
 ## Immediate next topics
 
-1. Finish the recursion exercises
-2. Variables, constants, and operators
-3. Structs and methods
-4. Pointers
-5. Error handling in more depth
+1. Finish the channel-direction exercises
+2. `select` and timeouts
+3. Closing and ranging over channels in more depth
+4. Worker pools and wait groups
+5. `context` for cancellation and deadlines
