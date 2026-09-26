@@ -55,7 +55,9 @@ pattern used in the backend.
 - [x] Range over channels in more depth
 - [x] Use `time.Timer` for one-shot delayed events
 - [x] Use `time.Ticker` for repeating events
-- [ ] Build a worker pool from goroutines and channels (current lesson)
+- [x] Build a worker pool from goroutines and channels
+- [ ] Use `sync.WaitGroup` to wait on a dynamic number of goroutines (current
+      lesson)
 - [ ] Learn `context`
 - [ ] Read a small feature in `neocore` from route to database
 
@@ -843,7 +845,86 @@ Related reading: [Go by Example: Worker Pools](https://gobyexample.com/worker-po
 4. Add a `sync.WaitGroup` (from the next lesson) instead of a counted
    results loop, so the program doesn't need to know `numJobs` in advance.
 
+## 14. WaitGroups in more depth
+
+`goroutines/main.go` already used `sync.WaitGroup` for the basic case: launch
+N goroutines, `Add(1)` before each one, `Done()` when each finishes, `Wait()`
+blocks until every `Add` has a matching `Done`. This lesson looks at two
+details that matter once WaitGroups get used for real work: how a worker
+receives the WaitGroup, and how to close a channel only once every worker is
+actually finished.
+
+```go
+func worker(id int, jobs <-chan int, results chan<- int, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for j := range jobs {
+		results <- j * 2
+	}
+}
+
+var wg sync.WaitGroup
+for w := 1; w <= 3; w++ {
+	wg.Add(1)             // registered BEFORE the goroutine starts
+	go worker(w, jobs, results, &wg)
+}
+```
+
+Two rules worth calling out explicitly:
+
+- `worker` takes `*sync.WaitGroup` — a pointer, not `sync.WaitGroup` by
+  value. A `WaitGroup` tracks internal counters that must never be copied;
+  `go vet` will warn if you accidentally pass one by value. This is the same
+  pointer-passing reasoning as pointer receivers in `methods/main.go`.
+- `wg.Add(1)` runs in the loop, before `go worker(...)` — never inside
+  `worker` itself. Goroutines aren't guaranteed to start in the order they're
+  launched, so if `Add` ran inside the goroutine, `wg.Wait()` could
+  potentially run before any `Add` happens at all, and return immediately
+  having never actually waited for anything.
+
+`worker_pools/main.go` collected exactly `numJobs` results because it
+already knew that count in advance. Combining a `WaitGroup` with a second
+goroutine removes that requirement entirely:
+
+```go
+go func() {
+	wg.Wait()      // blocks until every worker has called Done()
+	close(results) // only now is it safe to say "no more results are coming"
+}()
+
+for r := range results { // range_over_channels: no job count needed
+	total += r
+}
+```
+
+This fan-out/fan-in shape — launch several workers, wait for all of them,
+then close the output channel — is the standard way to run a batch of
+concurrent work and collect every result exactly once, without hardcoding
+how many results to expect.
+
+Dart's nearest match is `Future.wait([...])` — both wait for a group of
+concurrent operations to finish. The difference: `Future.wait` takes a
+known, fixed list of `Future`s up front, while a `WaitGroup`'s count can grow
+dynamically through more `Add` calls even after some goroutines are already
+running.
+
+See [`examples/wait_groups/main.go`](examples/wait_groups/main.go).
+
+Related reading: [Go by Example: WaitGroups](https://gobyexample.com/waitgroups)
+
+### Try it yourself
+
+1. Move `wg.Add(1)` inside `worker` (after `defer wg.Done()`) and run the
+   program several times — with enough runs, watch for it finishing "too
+   early" with an incomplete sum, then restore the original order.
+2. Change `worker` to take `sync.WaitGroup` by value instead of
+   `*sync.WaitGroup` and run `go vet ./...` to see the warning it produces.
+3. Increase the worker count to 5 and `numJobs` to 20, and confirm the sum
+   is still correct.
+4. Add a fourth worker that's launched without a matching `wg.Add(1)` and
+   observe `wg.Wait()` returns before that worker finishes.
+
 ## Immediate next topics
 
-1. Wait groups
-2. `context` for cancellation and deadlines
+1. Rate limiting
+2. Atomic counters
+3. `context` for cancellation and deadlines
