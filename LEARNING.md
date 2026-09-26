@@ -50,7 +50,8 @@ pattern used in the backend.
 - [x] Restrict channels with channel directions
 - [x] Wait on multiple channels with `select`
 - [x] Add timeouts to channel operations
-- [ ] Use non-blocking channel operations with `select`/`default` (current
+- [x] Use non-blocking channel operations with `select`/`default`
+- [ ] Close channels in depth, including their broadcast behaviour (current
       lesson)
 - [ ] Learn `context`
 - [ ] Read a small feature in `neocore` from route to database
@@ -555,8 +556,65 @@ Related reading:
 4. Remove `default` from one of the selects and explain out loud why the
    program now blocks forever.
 
+## 9. Closing channels in depth
+
+`channels/main.go` already showed the basics: `close(ch)` means "no more
+values are coming," and receiving from a closed, drained channel returns the
+zero value with `ok` set to `false` instead of blocking forever. What that
+lesson didn't cover is what makes `close` different from an ordinary send.
+
+A sent value only reaches **one** receiver — whichever goroutine happens to
+be ready for it. Closing a channel is a **broadcast**: every goroutine
+currently blocked on a receive from that channel wakes up at the same
+moment, and every future receive on it keeps returning immediately too.
+
+```go
+ready := make(chan bool)
+
+for id := 1; id <= 3; id++ {
+	go func(id int) {
+		<-ready // blocks until ready is closed
+		fmt.Printf("worker %d: starting\n", id)
+	}(id)
+}
+
+close(ready) // releases all three goroutines at once
+```
+
+Closing is also safe to do while another goroutine is mid-loop receiving from
+that same channel — the pending values already sent are still delivered
+first, and only once those are drained does `ok` become `false`. Receiving
+again after that keeps returning `ok=false`; it never panics from repeating
+the receive. (Closing an already-closed channel, or sending to a closed
+channel, are the two operations that *do* panic.)
+
+Dart's closest match is `StreamController.close()`: both notify every current
+subscriber that no more values are coming. Dart delivers that as a stream
+"done" callback; Go represents it as an ordinary channel receive that comes
+back with `ok=false`.
+
+The broadcast property is what makes `close` useful as a stop/cancel signal
+for an entire worker pool — closing one shared channel tells every worker
+goroutine to stop at once, which is simpler than sending each of them an
+individual value.
+
+See [`examples/closing_channels/main.go`](examples/closing_channels/main.go).
+
+Related reading:
+[Go by Example: Closing Channels](https://gobyexample.com/closing-channels)
+
+### Try it yourself
+
+1. Change the worker count from 3 to 5 and confirm all five still start
+   together right after `close(ready)`.
+2. Replace `close(ready)` with sending `true` on `ready` instead, and observe
+   that only one worker starts while the others block forever (a deadlock —
+   stop the program manually).
+3. Add a second `_, ok := <-jobs` after the first one and confirm `ok` is
+   still `false`, proving it's safe to repeat.
+4. Try `close(jobs)` a second time and read the panic message it produces.
+
 ## Immediate next topics
 
-1. Closing and ranging over channels in more depth
-2. Worker pools and wait groups
-3. `context` for cancellation and deadlines
+1. Worker pools and wait groups
+2. `context` for cancellation and deadlines
