@@ -53,7 +53,8 @@ pattern used in the backend.
 - [x] Use non-blocking channel operations with `select`/`default`
 - [x] Close channels in depth, including their broadcast behaviour
 - [x] Range over channels in more depth
-- [ ] Use `time.Timer` for one-shot delayed events (current lesson)
+- [x] Use `time.Timer` for one-shot delayed events
+- [ ] Use `time.Ticker` for repeating events (current lesson)
 - [ ] Learn `context`
 - [ ] Read a small feature in `neocore` from route to database
 
@@ -719,6 +720,66 @@ Related reading: [Go by Example: Timers](https://gobyexample.com/timers)
 4. Rewrite the timer1 wait using `select` with a `default` case (from the
    non-blocking channels lesson) so the program prints "still waiting"
    once before the timer fires, instead of blocking silently.
+
+## 12. Tickers
+
+A `time.Timer`'s channel fires exactly once. `time.Ticker` is the repeating
+version: its channel fires again and again, once per interval, until you
+stop it.
+
+```go
+ticker := time.NewTicker(100 * time.Millisecond)
+done := make(chan bool)
+
+go func() {
+	for {
+		select {
+		case <-done:
+			return
+		case t := <-ticker.C:
+			fmt.Println("tick at", t.Format("15:04:05.000"))
+		}
+	}
+}()
+
+time.Sleep(550 * time.Millisecond)
+ticker.Stop()
+done <- true
+```
+
+The `select` inside the goroutine combines two ideas from earlier lessons:
+waiting on multiple channels at once (select) and a dedicated signal channel
+to ask a goroutine to stop (`done`, the same pattern as
+`channel_synchronization/main.go`).
+
+The important warning: forgetting `ticker.Stop()` leaks the ticker's
+underlying goroutine and timer for as long as the program keeps running.
+Unlike a `Timer`, which naturally produces no more events after its one
+fire, a `Ticker` keeps firing forever if nothing stops it.
+
+Dart's `Timer.periodic(duration, callback)` is the direct match — both fire
+repeatedly on an interval, and both need an explicit cancel (`ticker.Stop()`
+vs. `timer.cancel()`) or they run indefinitely.
+
+Tickers drive periodic background work: polling a queue every few seconds,
+refreshing a cache, emitting metrics on a schedule. The rate limiting lesson
+next reuses this same "channel that fires on an interval" idea for a
+different purpose — throttling instead of scheduling.
+
+See [`examples/tickers/main.go`](examples/tickers/main.go).
+
+Related reading: [Go by Example: Tickers](https://gobyexample.com/tickers)
+
+### Try it yourself
+
+1. Change the ticker's interval to 200ms and the sleep to 1 second, and
+   predict how many ticks will print before you run it.
+2. Remove `ticker.Stop()` (but keep `done <- true`) and confirm the
+   goroutine still exits via the `done` case — then restore `Stop()`.
+3. Add a counter that stops the ticker automatically after 3 ticks, instead
+   of relying on `time.Sleep`.
+4. Explain out loud why a `Ticker` needs a separate `done` channel to stop
+   its goroutine, while a `Timer` used the same way would not.
 
 ## Immediate next topics
 
