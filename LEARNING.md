@@ -52,7 +52,8 @@ pattern used in the backend.
 - [x] Add timeouts to channel operations
 - [x] Use non-blocking channel operations with `select`/`default`
 - [x] Close channels in depth, including their broadcast behaviour
-- [ ] Range over channels in more depth (current lesson)
+- [x] Range over channels in more depth
+- [ ] Use `time.Timer` for one-shot delayed events (current lesson)
 - [ ] Learn `context`
 - [ ] Read a small feature in `neocore` from route to database
 
@@ -662,6 +663,62 @@ Related reading:
 3. Change the sum-of-squares loop to also count how many values it received.
 4. Rewrite the sum-of-squares loop as a manual `for { v, ok := <-numbers
    ...}` loop and confirm it produces the same total.
+
+## 11. Timers
+
+The timeouts lesson used `time.After(duration)` without explaining what it
+actually is: shorthand for `time.NewTimer(duration).C`. `time.Timer` is the
+full type behind it — a one-shot event that fires once after a delay, and
+can be cancelled before it does.
+
+```go
+timer1 := time.NewTimer(150 * time.Millisecond)
+<-timer1.C // blocks until the duration elapses, then receives the time
+fmt.Println("timer1 fired")
+```
+
+`NewTimer` starts counting immediately. `timer.C` is a receive-only channel
+that gets exactly one value once the duration has passed — that's the whole
+mechanism `time.After` was built on, without a name attached to the timer
+itself.
+
+Because you have that name, you can stop it before it fires:
+
+```go
+timer2 := time.NewTimer(200 * time.Millisecond)
+stopped := timer2.Stop() // true: prevented it from firing
+```
+
+`Stop()` returns `true` if it successfully prevented the firing, `false` if
+the timer had already fired or already been stopped. Use `time.After` when
+you only need the channel (as in the timeouts lesson); reach for
+`time.NewTimer` directly when you might need to cancel it first.
+
+Dart's closest match is `Timer(duration, callback)` — both schedule a
+one-shot event and both can be cancelled before firing (`timer.cancel()` in
+Dart, `timer.Stop()` in Go). The difference is what "firing" looks like:
+Dart runs your callback directly, while Go delivers a value on a channel
+that your own code then receives from.
+
+Backend code reaches for timers directly (rather than `time.After`) whenever
+a scheduled action might need to be cancelled if it turns out to be
+unnecessary, e.g. debouncing repeated requests.
+
+See [`examples/timers/main.go`](examples/timers/main.go).
+
+Related reading: [Go by Example: Timers](https://gobyexample.com/timers)
+
+### Try it yourself
+
+1. Change timer1's duration and confirm the "fired" message is delayed to
+   match.
+2. Remove the `timer2.Stop()` call and confirm "timer2 fired" now prints
+   from the goroutine.
+3. Call `timer2.Stop()` a second time and print its return value — what do
+   you expect, and does the result match?
+4. Rewrite the timer1 wait using `select` with a `default` case (from the
+   non-blocking channels lesson) so the program prints "still waiting"
+   once before the timer fires, instead of blocking silently.
 
 ## Immediate next topics
 
