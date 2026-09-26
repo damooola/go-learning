@@ -56,8 +56,8 @@ pattern used in the backend.
 - [x] Use `time.Timer` for one-shot delayed events
 - [x] Use `time.Ticker` for repeating events
 - [x] Build a worker pool from goroutines and channels
-- [ ] Use `sync.WaitGroup` to wait on a dynamic number of goroutines (current
-      lesson)
+- [x] Use `sync.WaitGroup` to wait on a dynamic number of goroutines
+- [ ] Throttle work with rate limiting (current lesson)
 - [ ] Learn `context`
 - [ ] Read a small feature in `neocore` from route to database
 
@@ -923,8 +923,76 @@ Related reading: [Go by Example: WaitGroups](https://gobyexample.com/waitgroups)
 4. Add a fourth worker that's launched without a matching `wg.Add(1)` and
    observe `wg.Wait()` returns before that worker finishes.
 
+## 15. Rate limiting
+
+`tickers/main.go` used `time.Ticker` to run a repeating action. Rate
+limiting reuses the exact same ticker, but for a different purpose:
+throttling how fast a loop is *allowed* to proceed, regardless of how fast
+the work it's processing actually arrives.
+
+```go
+limiter := time.NewTicker(200 * time.Millisecond)
+defer limiter.Stop()
+
+for req := range requests {
+	<-limiter.C // blocks until the next tick — this IS the throttle
+	fmt.Println("request", req, "at", time.Now())
+}
+```
+
+Each iteration waits for the next tick before continuing, so at most one
+request is processed every 200ms no matter how many are already queued in
+`requests`.
+
+Real traffic usually arrives in bursts rather than evenly spaced, so a
+second pattern layers a small buffered channel — a **token bucket** — on
+top:
+
+```go
+burstyLimiter := make(chan time.Time, 3) // 3 tokens available immediately
+for i := 0; i < 3; i++ {
+	burstyLimiter <- time.Now()
+}
+
+go func() {
+	for t := range burstyTicker.C { // refills one token per tick
+		burstyLimiter <- t
+	}
+}()
+```
+
+The first 3 requests can go through immediately (using the pre-filled
+tokens); after that, requests fall back to waiting on the ticker's rate,
+same as the basic version. This is the same shape you'll see in real
+libraries, just built here from primitives you already have (`Ticker` + a
+buffered channel).
+
+Dart has no built-in rate limiter either — you'd hand-roll the same idea
+with `Timer.periodic` refilling a token count, or reach for a package.
+Nothing about the concept is Go-specific, only the specific primitives used
+to build it.
+
+Rate limiting protects a service two ways: capping outbound requests to a
+third-party API that enforces its own limit, and protecting your own
+service from being overwhelmed by a sudden spike of incoming requests.
+
+See [`examples/rate_limiting/main.go`](examples/rate_limiting/main.go).
+
+Related reading:
+[Go by Example: Rate Limiting](https://gobyexample.com/rate-limiting)
+
+### Try it yourself
+
+1. Change the basic limiter's interval to 500ms and observe the requests
+   spread out further apart.
+2. Increase `burstyLimiter`'s buffer from 3 to 5 and confirm all 5 bursty
+   requests now print almost immediately.
+3. Add a 6th bursty request and predict, before running it, how long after
+   the burst it will print.
+4. Explain out loud why `burstyLimiter`'s refill goroutine needs `range` over
+   `burstyTicker.C` instead of a single receive.
+
 ## Immediate next topics
 
-1. Rate limiting
-2. Atomic counters
-3. `context` for cancellation and deadlines
+1. Atomic counters
+2. `context` for cancellation and deadlines
