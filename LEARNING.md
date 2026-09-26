@@ -57,7 +57,8 @@ pattern used in the backend.
 - [x] Use `time.Ticker` for repeating events
 - [x] Build a worker pool from goroutines and channels
 - [x] Use `sync.WaitGroup` to wait on a dynamic number of goroutines
-- [ ] Throttle work with rate limiting (current lesson)
+- [x] Throttle work with rate limiting
+- [ ] Share a counter safely with `sync/atomic` (current lesson)
 - [ ] Learn `context`
 - [ ] Read a small feature in `neocore` from route to database
 
@@ -992,7 +993,68 @@ Related reading:
 4. Explain out loud why `burstyLimiter`'s refill goroutine needs `range` over
    `burstyTicker.C` instead of a single receive.
 
+## 16. Atomic counters
+
+Every concurrency lesson so far has used channels or a `WaitGroup` to
+coordinate goroutines. `sync/atomic` solves a narrower, more direct problem:
+letting many goroutines safely share a single number, with no channel and no
+mutex.
+
+```go
+var ops atomic.Uint64
+var wg sync.WaitGroup
+
+for i := 0; i < 50; i++ {
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for c := 0; c < 1000; c++ {
+			ops.Add(1)
+		}
+	}()
+}
+
+wg.Wait()
+fmt.Println("ops:", ops.Load()) // always exactly 50000
+```
+
+`atomic.Uint64` (not a plain `uint64`) is the entire point: its `Add` and
+`Load` methods are guaranteed safe to call from many goroutines at once. A
+plain `ops++` shared across 50 goroutines would be a **data race** — two
+goroutines could both read the same old value before either writes back,
+silently losing updates. Swap `atomic.Uint64`/`Add`/`Load` for a plain
+`uint64`/`ops++`, and the final count becomes unpredictable and changes
+between runs, usually landing a bit under 50000.
+
+Dart rarely needs anything like this. Its single-threaded event loop means
+only one piece of code ever runs at a time (`Isolate`s aside, and they don't
+share memory anyway), so there's no equivalent of two pieces of code racing
+to update the same variable. Go's goroutines genuinely run in parallel
+across CPU cores and share memory directly — that's exactly the situation
+atomic operations protect against.
+
+Atomic counters are the lightweight option when the shared state is just a
+number — request counts, active connections, simple metrics. For anything
+more than a single number (several related fields, a map, a struct), a
+`sync.Mutex` is the more general tool.
+
+See [`examples/atomic_counters/main.go`](examples/atomic_counters/main.go).
+
+Related reading:
+[Go by Example: Atomic Counters](https://gobyexample.com/atomic-counters)
+
+### Try it yourself
+
+1. Uncomment the `unsafeOps`/`ops++` block, run the program several times,
+   and note that the printed count is unreliable and varies between runs.
+2. Run the unsafe version with `go run -race .` (the race detector) and read
+   the race report it produces.
+3. Change the goroutine count from 50 to 200 and the inner loop from 1000 to
+   500, and confirm the atomic total is still exactly correct.
+4. Replace `atomic.Uint64` with a `sync.Mutex`-protected plain `uint64`
+   (`mu.Lock(); ops++; mu.Unlock()`) and confirm it's also always exactly
+   50000 — two different tools solving the same problem.
+
 ## Immediate next topics
 
-1. Atomic counters
-2. `context` for cancellation and deadlines
+1. `context` for cancellation and deadlines
