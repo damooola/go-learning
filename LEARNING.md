@@ -54,7 +54,8 @@ pattern used in the backend.
 - [x] Close channels in depth, including their broadcast behaviour
 - [x] Range over channels in more depth
 - [x] Use `time.Timer` for one-shot delayed events
-- [ ] Use `time.Ticker` for repeating events (current lesson)
+- [x] Use `time.Ticker` for repeating events
+- [ ] Build a worker pool from goroutines and channels (current lesson)
 - [ ] Learn `context`
 - [ ] Read a small feature in `neocore` from route to database
 
@@ -781,7 +782,68 @@ Related reading: [Go by Example: Tickers](https://gobyexample.com/tickers)
 4. Explain out loud why a `Ticker` needs a separate `done` channel to stop
    its goroutine, while a `Timer` used the same way would not.
 
+## 13. Worker pools
+
+A worker pool combines several earlier lessons into the pattern they were
+building toward: a fixed number of goroutines all pulling jobs off one
+shared channel and pushing results onto another.
+
+```go
+func worker(id int, jobs <-chan int, results chan<- int) {
+	for j := range jobs { // range_over_channels: keeps pulling until closed
+		results <- j * 2
+	}
+}
+
+jobs := make(chan int, 5)
+results := make(chan int, 5)
+
+for w := 1; w <= 3; w++ {
+	go worker(w, jobs, results) // 3 workers sharing one jobs channel
+}
+
+for j := 1; j <= 5; j++ {
+	jobs <- j
+}
+close(jobs) // lets every worker's range loop end (closing_channels: broadcast)
+```
+
+`jobs <-chan int` / `results chan<- int` are the direction restrictions from
+`channel_direction/main.go`, now used to document each worker's role.
+`range` over `jobs` is `range_over_channels/main.go`'s pattern, now shared by
+several goroutines instead of one. Closing `jobs` relies on
+`closing_channels/main.go`'s broadcast property: all 3 workers notice the
+close once they've each drained the jobs meant for them, not just the first
+one to notice.
+
+Only 3 goroutines run at once here regardless of how many jobs are queued —
+that's the actual point of the pattern. It bounds concurrency: e.g. never
+running more than 3 downstream API calls or database queries at the same
+time, no matter how much work is waiting, instead of spawning one goroutine
+per job and letting concurrency grow unbounded.
+
+Dart has no built-in worker pool primitive — the closest match is manually
+spinning up several `Isolate`s with `SendPort`/`ReceivePort` pairs, which is
+considerably more setup than a few goroutines sharing one channel. That gap
+exists because Go's goroutines are so cheap to create (see
+`goroutines/main.go`) that "just launch a few and share a channel" is
+already lightweight.
+
+See [`examples/worker_pools/main.go`](examples/worker_pools/main.go).
+
+Related reading: [Go by Example: Worker Pools](https://gobyexample.com/worker-pools)
+
+### Try it yourself
+
+1. Change the worker count from 3 to 1 and observe the jobs now run one at a
+   time instead of overlapping.
+2. Increase `numJobs` to 9 and watch how the 3 workers split the extra work.
+3. Make each worker sleep for a random duration instead of a fixed 50ms, and
+   observe the finishing order becomes less predictable.
+4. Add a `sync.WaitGroup` (from the next lesson) instead of a counted
+   results loop, so the program doesn't need to know `numJobs` in advance.
+
 ## Immediate next topics
 
-1. Worker pools and wait groups
+1. Wait groups
 2. `context` for cancellation and deadlines
