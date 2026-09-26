@@ -49,7 +49,9 @@ pattern used in the backend.
 - [x] Learn channel buffering and synchronization
 - [x] Restrict channels with channel directions
 - [x] Wait on multiple channels with `select`
-- [ ] Add timeouts to channel operations (current lesson)
+- [x] Add timeouts to channel operations
+- [ ] Use non-blocking channel operations with `select`/`default` (current
+      lesson)
 - [ ] Learn `context`
 - [ ] Read a small feature in `neocore` from route to database
 
@@ -501,10 +503,60 @@ Related reading: [Go by Example: Timeouts](https://gobyexample.com/timeouts)
 4. Add a third operation whose delay and timeout are equal, then run it several
    times and observe why relying on exact timing is risky.
 
+## 8. Non-blocking channel operations
+
+A plain send or receive blocks until the other side is ready. Adding a
+`default` case to `select` lets you attempt a channel operation and fall
+through immediately if it is not ready, instead of waiting:
+
+```go
+select {
+case msg := <-messages:
+	fmt.Println("received message:", msg)
+default:
+	fmt.Println("no message received")
+}
+```
+
+Because nothing is sending on `messages`, the receive case is never ready, so
+`select` runs `default` right away rather than blocking. The same pattern
+works for a non-blocking send, and several non-blocking cases can share one
+`default`; `select` still only runs one case per attempt.
+
+This differs from the timeouts lesson: a timeout (`select` with
+`time.After`) waits up to a bounded duration before giving up, while a
+non-blocking `select` waits zero time. It is for checking something — a
+shutdown signal, an optional message — once per loop iteration without ever
+stalling that iteration on the check.
+
+Dart has no direct equivalent. `Stream` is push/callback based: you subscribe
+and get notified later, but there is no built-in "is a value available right
+now, otherwise move on" check. Approximating this in Dart would mean
+maintaining your own flag or buffer alongside the stream.
+
+Backend services use this pattern to poll for a signal or a piece of optional
+work alongside a larger loop, without ever pausing that loop to wait for it.
+
+See [`examples/non_blocking_channels/main.go`](examples/non_blocking_channels/main.go).
+
+Related reading:
+[Go by Example: Non-Blocking Channel Operations](https://gobyexample.com/non-blocking-channel-operations)
+
+### Try it yourself
+
+1. Start a goroutine that sends on `messages` after a short delay, then run
+   the first `select` again and observe it now receives instead of hitting
+   `default`.
+2. Add a `count` variable, and inside a `for` loop of several iterations, use
+   a non-blocking receive on `messages` to print whenever one arrives while
+   still printing something every iteration.
+3. Change the combined `select` so `signals` is ready instead of `messages`,
+   and confirm the `signals` case runs.
+4. Remove `default` from one of the selects and explain out loud why the
+   program now blocks forever.
+
 ## Immediate next topics
 
-1. Finish the timeout exercises
-2. Non-blocking channel operations
-3. Closing and ranging over channels in more depth
-4. Worker pools and wait groups
-5. `context` for cancellation and deadlines
+1. Closing and ranging over channels in more depth
+2. Worker pools and wait groups
+3. `context` for cancellation and deadlines
