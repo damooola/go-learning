@@ -51,8 +51,8 @@ pattern used in the backend.
 - [x] Wait on multiple channels with `select`
 - [x] Add timeouts to channel operations
 - [x] Use non-blocking channel operations with `select`/`default`
-- [ ] Close channels in depth, including their broadcast behaviour (current
-      lesson)
+- [x] Close channels in depth, including their broadcast behaviour
+- [ ] Range over channels in more depth (current lesson)
 - [ ] Learn `context`
 - [ ] Read a small feature in `neocore` from route to database
 
@@ -613,6 +613,55 @@ Related reading:
 3. Add a second `_, ok := <-jobs` after the first one and confirm `ok` is
    still `false`, proving it's safe to repeat.
 4. Try `close(jobs)` a second time and read the panic message it produces.
+
+## 10. Range over channels in more depth
+
+`channels/main.go` already used `for value := range moreJobs` briefly. The
+short version: `range` receives one value per iteration and keeps going until
+the channel is both closed and drained, then the loop ends on its own — no
+`ok` check or `break` needed, unlike the manual `for { value, ok := <-jobs
+... }` loop it replaces.
+
+```go
+queue := make(chan string, 3)
+go queueWork([]string{"wash", "dry", "fold"}, queue) // sends, then closes
+
+for task := range queue {
+	fmt.Println("-", task)
+}
+```
+
+Two details worth calling out on their own:
+
+- `range` over a channel gives you a single loop variable — the received
+  value. There is no index, unlike `range` over a slice.
+- If the producer never calls `close`, this loop hangs forever after the
+  last real value — there's no other way for `range` to know the producer is
+  finished. Forgetting to close a channel a `range` loop depends on is one of
+  the most common goroutine leaks in Go.
+
+This is close to Dart's `await for (var task in stream)` over a `Stream` —
+both consume values one at a time until the source signals completion
+(`Stream`'s "done" event, Go's channel close).
+
+`range` over a channel is the natural way to drain a queue of work or a
+stream of results from another goroutine — it's exactly what the worker
+pool lesson uses inside each worker.
+
+See [`examples/range_over_channels/main.go`](examples/range_over_channels/main.go).
+
+Related reading:
+[Go by Example: Range over Channels](https://gobyexample.com/range-over-channels)
+
+### Try it yourself
+
+1. Add a fourth item to the producer's list and confirm the loop still ends
+   cleanly.
+2. Comment out `close(queue)` inside `queueWork`, run the program, and
+   observe it hangs — then restore the `close` call.
+3. Change the sum-of-squares loop to also count how many values it received.
+4. Rewrite the sum-of-squares loop as a manual `for { v, ok := <-numbers
+   ...}` loop and confirm it produces the same total.
 
 ## Immediate next topics
 
