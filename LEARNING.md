@@ -62,9 +62,10 @@ pattern used in the backend.
 - [x] Protect shared state with `sync.Mutex`
 - [x] Own shared state in a single goroutine instead of locking it
 - [x] Sort built-in slice types with `sort`
-- [ ] Sort custom types with `sort.Slice` and `sort.Interface` (current
-      lesson)
-- [ ] Handle `panic`, `defer`, and `recover`
+- [x] Sort custom types with `sort.Slice` and `sort.Interface`
+- [x] Stop execution deliberately with `panic`
+- [x] Understand `defer` on its own
+- [x] Stop a `panic` from crashing the program with `recover`
 - [ ] Learn `context`
 - [ ] Read a small feature in `neocore` from route to database
 
@@ -1311,7 +1312,184 @@ Related reading:
 4. Rewrite `byLength`'s three methods as a single `sort.Slice` call instead,
    and confirm it produces the same result.
 
+## 21. Panic
+
+Every error so far (`errors/main.go`) was handled the normal Go way: return
+an `error`, let the caller decide what to do. `panic` is the escape hatch
+for when something is unrecoverable enough that continuing doesn't make
+sense — it stops normal execution immediately.
+
+```go
+_, err := os.Open("does/not/exist.txt")
+if err != nil {
+	panic(err)
+}
+fmt.Println("this line never runs")
+```
+
+`panic` accepts any value, not just a string — an `error` is idiomatic here
+since it already describes what went wrong. Once `panic` runs, no more
+lines in that function execute; Go starts unwinding the call stack,
+running any deferred calls (next lesson) as it goes, then prints the panic
+value and a stack trace and exits with a non-zero status — unless something
+`recover`s it first (the lesson after that).
+
+Dart's closest match is `throw` with no matching `catch` — the program
+terminates instead of continuing. The convention that matters here: reach
+for `panic` only for programmer errors and truly unrecoverable situations,
+and use a normal returned `error` for anything a caller might reasonably
+want to handle. Dart's exceptions get used far more liberally for ordinary
+error handling than Go's `panic` is meant to be.
+
+An unhandled `panic` in a request handler brings down the whole server
+process unless something recovers from it first — exactly what the
+`recover` lesson covers.
+
+See [`examples/panic/main.go`](examples/panic/main.go). Running it is
+supposed to crash with a non-zero exit status — that's the example working
+correctly, not a bug.
+
+Related reading: [Go by Example: Panic](https://gobyexample.com/panic)
+
+### Try it yourself
+
+1. Change the path passed to `os.Open` to a file that actually exists and
+   confirm the panic no longer happens.
+2. Replace `panic(err)` with `panic("a plain string works too")` and observe
+   the printed panic value changes accordingly.
+3. Run `go run ./examples/panic; echo $?` (or `$LASTEXITCODE` in
+   PowerShell) and confirm the exit code is non-zero.
+4. Add a second deferred `fmt.Println` above the existing one and predict
+   which one prints first during the panic's unwind.
+
+## 22. Defer
+
+`defer` has already shown up repeatedly — `defer wg.Done()`,
+`defer c.mu.Unlock()`, `defer limiter.Stop()` — always with a one-line
+explanation. This lesson is the full one.
+
+`defer` schedules a call to run right before the surrounding function
+returns, no matter where in the function body the `defer` statement itself
+appears:
+
+```go
+defer fmt.Println("this prints LAST, even though it's written first")
+fmt.Println("this prints first")
+```
+
+Multiple defers run in **LIFO** order — Last In, First Out, like a stack.
+Each `defer` statement pushes a call onto it; they run in reverse as the
+function returns:
+
+```go
+for i := 1; i <= 3; i++ {
+	defer fmt.Println("deferred:", i)
+}
+// prints "deferred: 3", "deferred: 2", "deferred: 1" — reverse of
+// registration order
+```
+
+A common surprise: a deferred call's **arguments** are evaluated
+immediately, when the `defer` statement runs — only the call itself is
+delayed:
+
+```go
+x := 1
+defer fmt.Println("deferred x was", x) // x captured as 1, right now
+x = 2
+// still prints "deferred x was 1", not 2
+```
+
+And the idiom `defer` exists for: guaranteeing a resource is released on
+every return path, without repeating the cleanup call before each one —
+`defer f.Close()` right after a successful `os.Open`/`os.Create`, so it
+runs whether the function returns normally, via an early `return err`, or
+(next lesson) during a panic's unwind.
+
+Dart's closest match is `try`/`finally` — both guarantee cleanup code runs
+regardless of how the surrounding code exits. The difference is structural:
+`try`/`finally` wraps a block directly, while `defer` attaches to the
+nearest enclosing *function*'s return, wherever in that function the
+`defer` statement happens to sit.
+
+`defer` is the standard way to close a database row set, an HTTP response
+body (`resp.Body.Close()`), or release a mutex — anything acquired that
+must be released no matter which path the function takes out.
+
+See [`examples/defer/main.go`](examples/defer/main.go).
+
+Related reading: [Go by Example: Defer](https://gobyexample.com/defer)
+
+### Try it yourself
+
+1. Move one of the loop's `defer` statements before the loop and predict how
+   the print order changes.
+2. In `argGotcha`, change `defer fmt.Println("...", x)` to
+   `defer func() { fmt.Println("...", x) }()` (a deferred closure instead of
+   a deferred call) and observe it now prints 2, not 1 — explain why.
+3. Remove `defer f.Close()` from `writeAndClean` and add an early
+   `return fmt.Errorf("oops")` right after opening the file; observe the
+   file no longer gets closed on that path.
+4. Add a third deferred cleanup step (e.g. printing "cleanup done") and
+   predict where in the LIFO order it will run.
+
+## 23. Recover
+
+`recover` is what stops a `panic` (previous lesson) from crashing the whole
+program.
+
+```go
+func safelyDo() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("recovered from panic:", r)
+		}
+	}()
+
+	mayPanic() // panics
+	fmt.Println("never runs")
+}
+```
+
+`recover` only does anything when called **directly inside a deferred
+function** — calling it anywhere else always returns `nil`, even during an
+active panic. Without this `recover`, `panic/main.go`'s example already
+showed what happens next: the whole program crashes. Here, `recover` stops
+the panic from propagating past `safelyDo`, so whatever called it —
+`main`, in this case — carries on completely normally afterward.
+
+One important limit: `recover` only works within the **same goroutine** as
+the panic. A panic inside a goroutine launched with `go f()` that's never
+recovered *inside that goroutine* crashes the whole program, no matter what
+`recover` calls exist elsewhere — there's no cross-goroutine try/catch.
+
+Dart's closest match is a `catch` block — `panic` throws, `recover`
+catches, both stop the error from propagating further up the call stack.
+The difference is structural: Dart's `try`/`catch` wraps the risky code
+directly, while Go's `recover` must sit inside a deferred function, one
+level removed from the code that actually panics.
+
+An HTTP server commonly wraps every request handler in a `recover` so ONE
+handler panicking (e.g. an unexpected `nil` from malformed input) returns a
+500 to that one request instead of crashing the entire server process and
+taking down every other in-flight request with it.
+
+See [`examples/recover/main.go`](examples/recover/main.go).
+
+Related reading: [Go by Example: Recover](https://gobyexample.com/recover)
+
+### Try it yourself
+
+1. Remove the `defer func() { recover() ... }()` block from `safelyDo` and
+   confirm the program now crashes exactly like `panic/main.go`'s example.
+2. Call `recover()` directly in `main` (not inside a deferred function) and
+   confirm it returns `nil` even nothing panicked.
+3. Launch `mayPanic` in its own goroutine (`go mayPanic()`) instead of
+   calling `safelyDo`, and observe the whole program crashes — proving
+   `recover` elsewhere can't save a different goroutine's panic.
+4. Change `mayPanic` to panic with a custom error type instead of a string,
+   and update `safelyDo`'s recover to type-assert `r` into that type.
+
 ## Immediate next topics
 
-1. `panic`, `defer`, and `recover`
-2. `context` for cancellation and deadlines
+1. `context` for cancellation and deadlines
