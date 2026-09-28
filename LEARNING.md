@@ -58,7 +58,8 @@ pattern used in the backend.
 - [x] Build a worker pool from goroutines and channels
 - [x] Use `sync.WaitGroup` to wait on a dynamic number of goroutines
 - [x] Throttle work with rate limiting
-- [ ] Share a counter safely with `sync/atomic` (current lesson)
+- [x] Share a counter safely with `sync/atomic`
+- [ ] Protect shared state with `sync.Mutex` (current lesson)
 - [ ] Learn `context`
 - [ ] Read a small feature in `neocore` from route to database
 
@@ -1055,6 +1056,64 @@ Related reading:
    (`mu.Lock(); ops++; mu.Unlock()`) and confirm it's also always exactly
    50000 — two different tools solving the same problem.
 
+## 17. Mutexes
+
+`atomic_counters/main.go` protected a single shared number. `sync.Mutex` is
+the more general tool, for when shared state is anything more than that — a
+map, a struct with several fields, a slice.
+
+```go
+type container struct {
+	mu       sync.Mutex
+	counters map[string]int
+}
+
+func (c *container) inc(name string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.counters[name]++
+}
+```
+
+`Lock()` gives the calling goroutine exclusive access; every other goroutine
+that calls `inc` blocks at `c.mu.Lock()` until the current holder calls
+`Unlock()`. `defer c.mu.Unlock()` guarantees that unlock happens no matter
+how `inc` returns — the same reasoning as `defer wg.Done()` in
+`wait_groups/main.go`.
+
+Without the lock, two goroutines could both read `counters["a"]` before
+either writes back — the same lost-update race `atomic_counters/main.go`
+warned about, just on a map entry instead of a plain number. `sync/atomic`
+can't help here: it only has counter types for individual numeric values,
+not for a map.
+
+Dart's single-threaded event loop means it almost never needs an explicit
+lock — only one piece of code runs at a time, so two operations can never
+interleave on the same data. Go's goroutines run genuinely in parallel and
+share memory directly, so a `Mutex` is how you carve out "only one goroutine
+touches this at a time" — something Dart gets for free and Go has to opt
+into.
+
+Rule of thumb going forward: reach for `sync/atomic` when shared state is a
+single number; reach for `sync.Mutex` for anything more — which describes
+most real shared state in a backend service, e.g. an in-memory cache guarded
+by a mutex.
+
+See [`examples/mutexes/main.go`](examples/mutexes/main.go).
+
+Related reading: [Go by Example: Mutexes](https://gobyexample.com/mutexes)
+
+### Try it yourself
+
+1. Comment out `c.mu.Lock()`/`defer c.mu.Unlock()` inside `inc`, run the
+   program several times, and observe the counts become unreliable.
+2. Run the unsafe version with `go run -race .` and read the race report.
+3. Add a third counter key, "c", incremented by a 4th goroutine, and confirm
+   all three totals come out exactly right.
+4. Replace `container`'s map with two separate `atomic.Uint64` fields
+   instead of a mutex-guarded map, and compare the two approaches.
+
 ## Immediate next topics
 
-1. `context` for cancellation and deadlines
+1. Stateful goroutines
+2. `context` for cancellation and deadlines
