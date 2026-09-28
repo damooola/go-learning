@@ -60,8 +60,10 @@ pattern used in the backend.
 - [x] Throttle work with rate limiting
 - [x] Share a counter safely with `sync/atomic`
 - [x] Protect shared state with `sync.Mutex`
-- [ ] Own shared state in a single goroutine instead of locking it (current
-      lesson)
+- [x] Own shared state in a single goroutine instead of locking it
+- [ ] Sort built-in slice types with `sort` (current lesson)
+- [ ] Sort custom types with `sort.Slice` and `sort.Interface`
+- [ ] Handle `panic`, `defer`, and `recover`
 - [ ] Learn `context`
 - [ ] Read a small feature in `neocore` from route to database
 
@@ -1192,6 +1194,59 @@ Related reading:
    each owning a distinct one) could still produce a "mismatch" line, even
    though the state goroutine itself has no race.
 
+## 19. Sorting
+
+`sort` handles the common case: sorting a slice of a type Go already knows
+how to compare.
+
+```go
+strs := []string{"cherry", "apple", "banana"}
+sort.Strings(strs)
+
+ints := []int{7, 2, 9, 4}
+sort.Ints(ints)
+```
+
+`sort.Strings`, `sort.Ints`, and `sort.Float64s` all sort **in place** —
+they mutate the slice you pass in rather than returning a new one, similar
+to how `append` can grow a slice's underlying array without you assigning
+its result to a new variable.
+
+Each type also has an `AreSorted` check (`sort.IntsAreSorted`), and a
+`sort.SearchInts` binary search — much faster than scanning the whole
+slice, but only correct on an **already-sorted** slice; there's no way for
+it to verify that for you, so calling it on unsorted data just returns a
+meaningless index.
+
+Dart's `List` has `sort()` as a method on the list itself
+(`strs.sort()`), mutating in place the same way. Go's version being a
+package-level function rather than a method follows the same shape as
+`len()`/`append()` — operations spanning many types live as functions, not
+methods, since Go's built-in slice types have no shared method set the way
+Dart's `List<T>` does.
+
+Sorting query results, leaderboard entries, or log timestamps before
+display are everyday backend uses; `sort.SearchInts`' binary search starts
+to matter once a slice is large enough that a linear scan would be
+noticeably slow.
+
+See [`examples/sorting/main.go`](examples/sorting/main.go).
+
+Related reading: [Go by Example: Sorting](https://gobyexample.com/sorting)
+
+### Try it yourself
+
+1. Add a `sort.Sort(sort.Reverse(sort.IntSlice(ints)))` call and print the
+   result — reverse-sorted order.
+2. Call `sort.SearchInts` for a value that isn't in the slice and inspect
+   what index comes back.
+3. Sort `ints` in DESCENDING order first, then call `sort.IntsAreSorted` on
+   it and explain the result.
+4. Write your own linear-search function and compare its result to
+   `sort.SearchInts` for the same target value.
+
 ## Immediate next topics
 
-1. `context` for cancellation and deadlines
+1. Sorting custom types with `sort.Slice`
+2. `panic`, `defer`, and `recover`
+3. `context` for cancellation and deadlines
