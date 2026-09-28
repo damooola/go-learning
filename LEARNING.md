@@ -61,8 +61,9 @@ pattern used in the backend.
 - [x] Share a counter safely with `sync/atomic`
 - [x] Protect shared state with `sync.Mutex`
 - [x] Own shared state in a single goroutine instead of locking it
-- [ ] Sort built-in slice types with `sort` (current lesson)
-- [ ] Sort custom types with `sort.Slice` and `sort.Interface`
+- [x] Sort built-in slice types with `sort`
+- [ ] Sort custom types with `sort.Slice` and `sort.Interface` (current
+      lesson)
 - [ ] Handle `panic`, `defer`, and `recover`
 - [ ] Learn `context`
 - [ ] Read a small feature in `neocore` from route to database
@@ -1245,8 +1246,72 @@ Related reading: [Go by Example: Sorting](https://gobyexample.com/sorting)
 4. Write your own linear-search function and compare its result to
    `sort.SearchInts` for the same target value.
 
+## 20. Sorting by functions
+
+`sort.Strings`/`sort.Ints`/`sort.Float64s` only know how to compare the type
+they're named for. Sorting a slice by a custom rule — or a slice of your own
+struct type — needs one of two approaches.
+
+The classic approach: implement `sort.Interface` — three methods, `Len`,
+`Less`, and `Swap` — on a named type, then hand it to `sort.Sort`:
+
+```go
+type byLength []string
+
+func (s byLength) Len() int      { return len(s) }
+func (s byLength) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s byLength) Less(i, j int) bool { return len(s[i]) < len(s[j]) }
+
+sort.Sort(byLength(fruits))
+```
+
+`byLength(fruits)` doesn't copy the slice — it's the same underlying array,
+viewed through a type that has `Len`/`Less`/`Swap` attached, so sorting
+through that view sorts `fruits` itself.
+
+The shorter modern approach: `sort.Slice` takes a "less" function directly,
+no named type or `Len`/`Swap` required:
+
+```go
+sort.Slice(people, func(i, j int) bool {
+	return people[i].age < people[j].age
+})
+```
+
+One detail worth knowing: `sort.Slice` doesn't guarantee **stability** —
+elements that compare equal can still end up reordered relative to each
+other. `sort.SliceStable` preserves their original relative order when two
+elements compare equal, which matters when a second sort should only break
+ties rather than scramble them.
+
+Dart's `list.sort((a, b) => a.age - b.age)` takes a comparator the same way
+`sort.Slice` takes a "less" function — that's the closer everyday match.
+`sort.Interface`'s `Len`/`Less`/`Swap` trio has no real Dart equivalent; it
+predates `sort.Slice` as Go's only way to customize sort behavior.
+
+Sorting a slice of your own structs — users by signup date, transactions by
+amount, results by relevance score — is one of the most common uses of
+`sort.Slice` in backend code. Reach for `sort.Interface` only when you want
+a named, reusable sort order rather than a one-off closure.
+
+See [`examples/sorting_by_functions/main.go`](examples/sorting_by_functions/main.go).
+
+Related reading:
+[Go by Example: Sorting by Functions](https://gobyexample.com/sorting-by-functions)
+
+### Try it yourself
+
+1. Add a second `sort.Slice` call sorting `people` by name descending, and
+   print the result.
+2. Add a fourth `person` with the same age as an existing one, sort by age
+   with plain `sort.Slice`, then again with `sort.SliceStable` sorted by
+   name first — observe how ties are handled differently.
+3. Add a `Less` variant to `byLength` that sorts by length DESCENDING, and
+   confirm the fruit order reverses.
+4. Rewrite `byLength`'s three methods as a single `sort.Slice` call instead,
+   and confirm it produces the same result.
+
 ## Immediate next topics
 
-1. Sorting custom types with `sort.Slice`
-2. `panic`, `defer`, and `recover`
-3. `context` for cancellation and deadlines
+1. `panic`, `defer`, and `recover`
+2. `context` for cancellation and deadlines
