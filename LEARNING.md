@@ -59,7 +59,9 @@ pattern used in the backend.
 - [x] Use `sync.WaitGroup` to wait on a dynamic number of goroutines
 - [x] Throttle work with rate limiting
 - [x] Share a counter safely with `sync/atomic`
-- [ ] Protect shared state with `sync.Mutex` (current lesson)
+- [x] Protect shared state with `sync.Mutex`
+- [ ] Own shared state in a single goroutine instead of locking it (current
+      lesson)
 - [ ] Learn `context`
 - [ ] Read a small feature in `neocore` from route to database
 
@@ -1113,7 +1115,83 @@ Related reading: [Go by Example: Mutexes](https://gobyexample.com/mutexes)
 4. Replace `container`'s map with two separate `atomic.Uint64` fields
    instead of a mutex-guarded map, and compare the two approaches.
 
+## 18. Stateful goroutines
+
+`mutexes/main.go` protected shared state by letting many goroutines touch it
+directly, one at a time, guarded by a lock — Go's proverb calls this
+"communicate by sharing memory." Stateful goroutines flip that: keep the
+state inside exactly **one** goroutine, and have every other goroutine reach
+it only by sending messages — "share memory by communicating."
+
+```go
+type readOp struct {
+	key  int
+	resp chan int
+}
+type writeOp struct {
+	key  int
+	val  int
+	resp chan bool
+}
+
+reads := make(chan readOp)
+writes := make(chan writeOp)
+
+go func() {
+	state := make(map[int]int) // owned by THIS goroutine, and only this one
+	for {
+		select {
+		case read := <-reads:
+			read.resp <- state[read.key]
+		case write := <-writes:
+			state[write.key] = write.val
+			write.resp <- true
+		}
+	}
+}()
+```
+
+Every request carries its own `resp` channel — the only way the state
+goroutine can reply directly to the specific goroutine that asked, instead
+of broadcasting the answer to whoever happens to be listening. A goroutine
+that wants to read or write sends a `readOp`/`writeOp` on the shared
+channel, then waits on its own private `resp` channel for the answer.
+
+Because `state` is never touched by more than one goroutine — every access
+goes through the same `select` loop, one operation at a time — there's no
+data race, and no `Lock()`/`Unlock()` anywhere. `select` here is exactly the
+"wait on multiple channel operations" tool from the select lesson, just
+serving requests instead of racing timeouts.
+
+Dart's nearest analogy is routing every state change through a single
+event handler (like a BLoC or a `StreamController` acting as the sole
+owner) rather than letting multiple pieces of code mutate a shared object
+directly. The difference is Dart usually reaches for that as an
+architectural choice; here it's solving an actual data-race problem that
+only exists because goroutines run in real parallel.
+
+This pattern shows up as a dedicated "manager" goroutine owning something
+like an in-memory connection pool or cache, where every other goroutine
+sends it requests instead of touching the underlying data structure
+directly — useful when the access pattern is more complex than a `Mutex`
+comfortably expresses.
+
+See [`examples/stateful_goroutines/main.go`](examples/stateful_goroutines/main.go).
+
+Related reading:
+[Go by Example: Stateful Goroutines](https://gobyexample.com/stateful-goroutines)
+
+### Try it yourself
+
+1. Change the goroutine count from 20 to 100 and confirm every read still
+   matches its write.
+2. Add a third operation type, `deleteOp`, that removes a key from `state`.
+3. Print `state`'s final size (number of keys) from inside the state
+   goroutine just before it returns, after `done` fires.
+4. Explain out loud why two goroutines sharing the SAME key here (instead of
+   each owning a distinct one) could still produce a "mismatch" line, even
+   though the state goroutine itself has no race.
+
 ## Immediate next topics
 
-1. Stateful goroutines
-2. `context` for cancellation and deadlines
+1. `context` for cancellation and deadlines
