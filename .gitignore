@@ -2,3 +2,5 @@ tmp/
 *.exe
 *.test
 .env
+# Notes on private employer code: keep local only
+case_studies/bank_statement_handler/README.md
